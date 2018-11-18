@@ -1,1 +1,1 @@
-An esoteric programming language.
+An esoteric Turing complete programming language
