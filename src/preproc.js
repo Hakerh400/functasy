@@ -8,6 +8,7 @@ const {toId, toName} = require('./idents');
 const LOG_STR = 1;
 
 const MAX_LINE_LEN = 80;
+const INITIAL_DEPTH = 11;
 
 const cwd = __dirname;
 const headerFile = path.join(cwd, 'header.txt');
@@ -71,7 +72,7 @@ function preproc(buf){
 
     var {index} = match;
     var idents = match[0].match(/[0-9a-zA-Z_]+/g);
-    var depth = 10;
+    var depth = INITIAL_DEPTH;
     var d = 0;
 
     for(var i = 0; i !== str.length; i++){
@@ -118,7 +119,7 @@ function preproc(buf){
   };
 
   str = str
-    .replace(/\(\s*\)/g, ' #0 ')
+    .replace(/\(\s*\)/g, ' @0 ')
     .replace(/;}/g, '}')
     .replace(/;/g, '#9{#8}')
     .replace(/{\s*}/g, '#0 ');
@@ -159,7 +160,7 @@ function preproc(buf){
     .replace(/\{/g, '(')
     .replace(/\}/g, ')');
 
-  var depth = 10;
+  var depth = INITIAL_DEPTH;
   var depths = O.ca(str.length, i => {
     if(str[i] === '(') depth++;
     else if(depth !== 0 && str[i] === ')') depth--;
