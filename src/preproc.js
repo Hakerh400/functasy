@@ -5,6 +5,8 @@ const path = require('path');
 const O = require('./framework');
 const {toId, toName} = require('./idents');
 
+const LOG_STR = 1;
+
 const cwd = __dirname;
 const headerFile = path.join(cwd, 'header.txt');
 
@@ -92,7 +94,7 @@ function preproc(buf){
 
   str = str
     .replace(/\s*\,\s*/g, ')(')
-    .replace(/[0-9a-zA-Z_]+_(\d+)/g, (a, b) => `#${toName(b | 0)}`);
+    .replace(/[0-9a-zA-Z_]+_(\d+)/g, (a, b) => ` #${toName(b | 0)} `);
 
   while(1){
     var match = str.match(/[#@]([0-9a-zA-Z])\s*=\s*/);
@@ -114,15 +116,41 @@ function preproc(buf){
   };
 
   str = str
-    .replace(/\(\s*\)/g, ' #0 ')
-    .replace(/\(([#@]?[0-9a-zA-Z])\)/g, (a, b) => b)
+    .replace(/\(\s*\)/g, '#0 ')
     .replace(/;}/g, '}')
-    .replace(/;/g, ' #9 {#8}')
-    .replace(/{\s*}/g, ' #0 ');
+    .replace(/;/g, '#9{#8}')
+    .replace(/{\s*}/g, '#0 ');
+
+  while(1){
+    var match = str.match(/\(/);
+    if(match === null) break;
+
+    var {index} = match;
+    var depth = 0;
+    var s = '';
+
+    for(var i = index + 1; i !== str.length; i++){
+      var c = str[i];
+      if(c === ')' || c === '}') depth--;
+      if(depth === 0) s += c;
+      if(c === '(' || c === '{') depth++;
+      if(depth === -1) break;
+    }
+
+    var b = !s.includes('=') && (s.match(/[({#]/g) || []).length > 1;
+
+    str = str.slice(0, index) + (b ? '<' : '') +
+          str.slice(index + 1, i) + (b ? '>' : '') +
+          str.slice(i + 1);
+  }
+
+  str = str
+    .replace(/</g, '(')
+    .replace(/>/g, ')');
 
   do{
     var prev = str;
-    str = str.replace(/\(([^\)]*)\)/g, (a, b) => ` #9{#7 @0 } {${b}}`);
+    str = str.replace(/\(([^\)]*)\)/g, (a, b) => `#9{#7@0}{${b}}`);
   }while(str !== prev);
 
   str = str
@@ -151,8 +179,7 @@ function preproc(buf){
       return ' '.repeat(Math.min(prev, depth) << 1) + line.replace(/\s+/g, '');
     }).join('\n');
 
-  log(str);
-
+  if(LOG_STR) log(str);
   str = header.replace(/#/m, str);
 
   return Buffer.from(str);
