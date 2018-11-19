@@ -170,13 +170,17 @@ function preproc(buf){
     return toName(id);
   });
 
+  var prev = 0;
   var depth = 0;
+  var indent = 0;
+
   str = O.sanl(str)
     .map(line => {
       prev = depth;
-      depth += Math.sign((line.match(/\(/g) || []).length - (line.match(/\)/g) || []).length);
+      depth += (line.match(/\(/g) || []).length - (line.match(/\)/g) || []).length;
       if(depth < 0) depth = 0;
-      return ' '.repeat(Math.min(prev, depth) << 1) + line.replace(/\s+/g, '');
+      indent = Math.min(prev, depth);
+      return ' '.repeat(indent << 1) + line.replace(/\s+/g, '');
     }).join('\n');
 
   if(LOG_STR) log(str);

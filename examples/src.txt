@@ -1,0 +1,20 @@
+var not = [a]{
+  a(0, 1);
+};
+
+var f = {
+  more()({
+    write(not(not(read())));
+    write(read());
+    write(read());
+    write(read());
+
+    write(read());
+    write(read());
+    write(read());
+    write(read());
+    f();
+  }, 0)();
+};
+
+f();
