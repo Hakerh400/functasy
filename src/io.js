@@ -5,9 +5,11 @@ const path = require('path');
 const O = require('./framework');
 
 class IO{
-  constructor(input){
+  constructor(input, mode=0){
     this.input = Buffer.from(input);
     this.output = Buffer.alloc(1);
+
+    this.mode = mode;
 
     this.inputIndex = 0;
     this.outputIndex = 0;
@@ -19,7 +21,7 @@ class IO{
     var i = this.inputIndex;
 
     if((i >> 4) >= input.length) return 0;
-    this.inputIndex++;
+    this.inputIndex += this.mode ? 2 : 1;
 
     if((i & 1) === 0) return 1;
     return input[i >> 4] & (1 << ((i >> 1) & 7)) ? 1 : 0;
