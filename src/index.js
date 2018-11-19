@@ -11,7 +11,7 @@ module.exports = {
   run,
 };
 
-function run(src, input, encoding=null){
+function run(src, input, encoding){
   var engine = new Engine(src);
   var io = new IO(input);
 
@@ -20,9 +20,5 @@ function run(src, input, encoding=null){
 
   engine.run();
 
-  var output = io.getOutput();
-  if(encoding !== null)
-    output = output.toString(encoding);
-
-  return output;
+  return io.getOutput(encoding);
 }

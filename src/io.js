@@ -5,13 +5,13 @@ const path = require('path');
 const O = require('./framework');
 
 class IO{
-  constructor(input, mode=0){
+  constructor(input='', mode=0){
     this.input = Buffer.from(input);
     this.output = Buffer.alloc(1);
 
     this.mode = mode;
 
-    this.inputIndex = 0;
+    this.inputIndex = mode ? 1 : 0;
     this.outputIndex = 0;
     this.byte = 0;
   }
@@ -44,10 +44,12 @@ class IO{
     this.byte = 0;
   }
 
-  getOutput(){
+  getOutput(encoding=null){
     if((this.outputIndex & 7) !== 0) this.addByte();
     var len = Math.ceil(this.outputIndex / 8);
-    return Buffer.from(this.output.slice(0, len));
+    var buf = Buffer.from(this.output.slice(0, len));
+    if(encoding !== null) buf = buf.toString(encoding);
+    return buf;
   }
 };
 

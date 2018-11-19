@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const O = require('./framework');
 const parser = require('./parser');
+const Serializer = require('./serializer');
 
 class Engine{
   constructor(src){
