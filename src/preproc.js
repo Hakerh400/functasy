@@ -7,6 +7,8 @@ const {toId, toName} = require('./idents');
 
 const LOG_STR = 1;
 
+const MAX_LINE_LEN = 80;
+
 const cwd = __dirname;
 const headerFile = path.join(cwd, 'header.txt');
 
@@ -116,7 +118,7 @@ function preproc(buf){
   };
 
   str = str
-    .replace(/\(\s*\)/g, '#0 ')
+    .replace(/\(\s*\)/g, ' #0 ')
     .replace(/;}/g, '}')
     .replace(/;/g, '#9{#8}')
     .replace(/{\s*}/g, '#0 ');
@@ -137,7 +139,7 @@ function preproc(buf){
       if(depth === -1) break;
     }
 
-    var b = !s.includes('=') && (s.match(/[({#]/g) || []).length > 1;
+    var b = !s.includes('=') && (s.match(/[({#@]/g) || []).length > 1;
 
     str = str.slice(0, index) + (b ? '<' : '') +
           str.slice(index + 1, i) + (b ? '>' : '') +
@@ -170,21 +172,14 @@ function preproc(buf){
     return toName(id);
   });
 
-  var prev = 0;
-  var depth = 0;
-  var indent = 0;
+  str = header
+    .replace('#', str)
+    .replace(/\s+/g, '')
+    .match(new RegExp(`.{${MAX_LINE_LEN}}|.*`, 'g'))
+    .join('\n');
 
-  str = O.sanl(str)
-    .map(line => {
-      prev = depth;
-      depth += (line.match(/\(/g) || []).length - (line.match(/\)/g) || []).length;
-      if(depth < 0) depth = 0;
-      indent = Math.min(prev, depth);
-      return ' '.repeat(indent << 1) + line.replace(/\s+/g, '');
-    }).join('\n');
-
-  if(LOG_STR) log(str);
-  str = header.replace(/#/m, str);
+  if(LOG_STR)
+    log(str);
 
   return Buffer.from(str);
 }

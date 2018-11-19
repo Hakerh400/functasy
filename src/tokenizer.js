@@ -6,7 +6,7 @@ const O = require('./framework');
 const preproc = require('./preproc');
 const {toId, toName} = require('./idents');
 
-const PREPROCESSOR_ENABLED = 1;
+const PREPROCESSOR_ENABLED = process.argv.slice(2).includes('-preproc');
 
 const WHITESPACE_CHARS = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0];
 
