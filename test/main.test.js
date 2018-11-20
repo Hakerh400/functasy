@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const O = require('../src/framework');
+const O = require('omikron');
 const functasy = require('..');
 const Serializer = require('../src/serializer');
 

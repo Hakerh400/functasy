@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const O = require('./framework');
+const O = require('omikron');
 const {toId, toName} = require('./idents');
 
 const LOG_STR = 1;

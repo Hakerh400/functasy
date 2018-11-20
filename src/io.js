@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const O = require('./framework');
+const O = require('omikron');
 
 class IO{
   constructor(input='', mode=0){

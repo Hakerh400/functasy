@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const O = require('./framework');
+const O = require('omikron');
 const tokenizer = require('./tokenizer');
 const {toId, toName} = require('./idents');
 
