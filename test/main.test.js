@@ -2,23 +2,38 @@
 
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const assert = require('assert');
 const O = require('omikron');
 const functasy = require('..');
 const Serializer = require('../src/serializer');
+
+const TIMEOUT = 10e3;
+const EXTENSION = 'txt';
 
 const cwd = __dirname;
 const programs = path.join(cwd, 'programs');
 
 describe('Engine', () => {
   it('Cat', () => {
-    // The cat program is a program that copies its standard input to its standard output.
-    var src = fs.readFileSync(path.join(programs, 'cat.txt'));
+    // The cat program is a program that copies its input to its output.
+    var name = 'cat';
     var input = O.ca(O.rand(20, 30), () => O.sfcc(O.rand(32, 126))).join('');
-    var expected = input;
-    var actual = functasy.run(src, input, 'utf8');
-    assert.strictEqual(actual, expected);
+    var output = input;
+    test(name, input, output);
+    
   });
+
+  function test(name, input, expected){
+    var src = fs.readFileSync(path.join(programs, `${name}.${EXTENSION}`));
+    var actual = null;
+
+    var script = new vm.Script('run()');
+    var sandbox = vm.createContext({run(){ actual = functasy.run(src, input, 'utf8'); }});
+    script.runInContext(sandbox, {timeout: TIMEOUT});
+
+    assert.strictEqual(actual, expected);
+  }
 });
 
 describe('Serializer', () => {

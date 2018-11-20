@@ -19,15 +19,10 @@ class Engine{
     var ser = new Serializer();
   }
 
-  run(timeout=10e3){
+  run(){
     const {stack} = this;
 
-    var t = Date.now();
-
     while(stack.length !== 0){
-      if(Date.now() - t > timeout)
-        throw new Error(`Timeout of ${timeout}ms exceeded`);
-
       var frame = O.last(stack);
 
       if(frame.len() === 0){ // The current chain is finished
