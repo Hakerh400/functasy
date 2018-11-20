@@ -15,13 +15,20 @@ const cwd = __dirname;
 const programs = path.join(cwd, 'programs');
 
 describe('Engine', () => {
+  it('Hello, World!', () => {
+    // Print "Hello, World!""
+    var name = 'hello-world';
+    var input = randStr();
+    var output = 'Hello, World!';
+    test(name, input, output);
+  });
+
   it('Cat', () => {
     // The cat program is a program that copies its input to its output.
     var name = 'cat';
-    var input = O.ca(O.rand(20, 30), () => O.sfcc(O.rand(32, 126))).join('');
+    var input = randStr();
     var output = input;
     test(name, input, output);
-    
   });
 
   function test(name, input, expected){
@@ -33,6 +40,14 @@ describe('Engine', () => {
     script.runInContext(sandbox, {timeout: TIMEOUT});
 
     assert.strictEqual(actual, expected);
+  }
+
+  function randStr(){
+    return O.ca(O.rand(20, 30), () => randChar()).join('');
+  }
+
+  function randChar(){
+    return O.sfcc(O.rand(32, 126));
   }
 });
 
