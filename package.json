@@ -19,7 +19,6 @@
     "omikron": "^1.0.0"
   },
   "devDependencies": {
-    "assert-rejects": "^1.0.0",
     "mocha": "^5.2.0"
   },
   "engines": {

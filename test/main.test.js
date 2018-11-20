@@ -8,21 +8,16 @@ const functasy = require('..');
 const Serializer = require('../src/serializer');
 
 const cwd = __dirname;
-const testSuite = path.join(cwd, 'test-suite');
+const programs = path.join(cwd, 'programs');
 
 describe('Engine', () => {
-  fs.readdirSync(testSuite).forEach(name => {
-    it(name, () => {
-      var dir = path.join(testSuite, name);
-
-      var src = fs.readFileSync(path.join(dir, 'src.txt'));
-      var input = fs.readFileSync(path.join(dir, 'input.txt'));
-
-      var expected = fs.readFileSync(path.join(dir, 'output.txt'), 'utf8');
-      var actual = functasy.run(src, input, 'utf8');
-
-      assert.strictEqual(actual, expected);
-    });
+  it('Cat', () => {
+    // The cat program is a program that copies its standard input to its standard output.
+    var src = fs.readFileSync(path.join(programs, 'cat.txt'));
+    var input = O.ca(O.rand(20, 30), () => O.sfcc(O.rand(32, 126))).join('');
+    var expected = input;
+    var actual = functasy.run(src, input, 'utf8');
+    assert.strictEqual(actual, expected);
   });
 });
 

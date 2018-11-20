@@ -8,14 +8,19 @@ const Serializer = require('./serializer');
 
 class Engine{
   constructor(src){
-    this.src = parser.parse(Buffer.from(src));
+    var chain = parser.parse(Buffer.from(src));
+    var closure = new Closure(chain);
+
+    this.stack = [new StackFrame(closure)];
     this.meta = new Closure(parser.meta());
   }
 
+  save(){
+    var ser = new Serializer();
+  }
+
   run(timeout=10e3){
-    var chain = this.src;
-    var closure = new Closure(chain);
-    var stack = [new StackFrame(closure)];
+    const {stack} = this;
 
     var t = Date.now();
 
