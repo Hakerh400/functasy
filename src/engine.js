@@ -8,10 +8,9 @@ const Serializer = require('./serializer');
 
 class Engine{
   constructor(src){
-    var chain = parser.parse(Buffer.from(src));
-    var closure = new Closure(chain);
+    var func = parser.parse(Buffer.from(src));
 
-    this.stack = [new StackFrame(closure)];
+    this.stack = [new StackFrame(func)];
     this.meta = new Closure(parser.meta());
   }
 
@@ -25,9 +24,9 @@ class Engine{
     while(stack.length !== 0){
       var frame = O.last(stack);
 
-      if(frame.len() === 0){ // The current chain is finished
-        if(frame.val === null){ // Meta chain is called
-          // When called, meta chain returns itself
+      if(frame.len() === 0){ // The current function is finished
+        if(frame.val === null){ // Meta function is called
+          // When called, meta function returns itself
           frame.val = this.meta;
           continue;
         }
@@ -35,7 +34,7 @@ class Engine{
         // Pop the last stack frame
         stack.pop();
 
-        // If this was not the last chain, put the value on the previous frame
+        // If this was not the last function, put the value on the previous frame
         if(stack.length !== 0)
           O.last(stack).val = frame.val;
 
@@ -50,9 +49,9 @@ class Engine{
       var val = frame.val;
       var v = frame.eval(elem);
 
-      if(v.isMeta()){ // Meta chain
+      if(v.isMeta()){ // Meta function
         /**
-         * Meta chain is special. Its behavior depends on the
+         * Meta function is special. Its behavior depends on the
          * situation it appears in. There are 6 different cases
          */
 
@@ -61,20 +60,20 @@ class Engine{
 
         if(val === null){
           if(next === null){        // Case 1: [empty] [empty]
-            // Initialize the stack frame with the meta chain
+            // Initialize the stack frame with the meta function
             frame.val = v;
           }else if(next.isIdent()){ // Case 2: [empty] [ident]
             // Output 1
             this.write(1);
             // Evaluate the next element and save it in the frame value
             frame.val = n;
-          }else{                    // Case 3: [empty] [chain]
+          }else{                    // Case 3: [empty] [function]
             // Read the next bit
             if(this.read()){
-              // If the next bit is 1, call the chain
+              // If the next bit is 1, call the function
               call(n, v);
             }else{
-              // If the next bit is 0, return the chain
+              // If the next bit is 0, return the function
               frame.val = n;
             }
           }
@@ -85,7 +84,7 @@ class Engine{
           }else if(next.isIdent()){ // Case 5: [value] [ident]
             // Update the value associated with the given identifier
             frame.set(next.id, val);
-          }else{                    // Case 6: [value] [chain]
+          }else{                    // Case 6: [value] [function]
             // Perform the call in the reversed order
             call(n, val);
           }
@@ -103,14 +102,14 @@ class Engine{
       call(val, v);
     }
 
-    // Call the given chain with the given argument
-    function call(chain, arg){
+    // Call the given function with the given argument
+    function call(closure, arg){
       // Create a new stack frame
-      var newFrame = chain.call(arg);
+      var newFrame = O.last(stack).call(closure, arg);
 
       if(O.last(stack).len() === 0){
         /**
-         * In case this was the last call from the current chain,
+         * In case this was the last call from the current function,
          * replace the current stack frame with the new one
          */
 
@@ -124,22 +123,59 @@ class Engine{
 
 module.exports = Engine;
 
-class StackFrame{
-  constructor(closure, val=null){
-    this.closure = closure;
-    this.val = val;
+class Closure{
+  constructor(func, idents, arg=null){
+    this.func = func;
+    this.idents = O.obj();
+
+    for(var ident of func.idents){
+      if(ident >= func.depth) break;
+      this.idents[ident] = idents[ident];
+    }
+
+    if(arg !== null && func.isArgUsed)
+      this.idents[this.func.depth - 1] = arg;
+
+    this.index = 0;
   }
 
-  eval(elem){ return this.closure.eval(elem); }
-  next(){ return this.closure.next(); }
-  len(){ return this.closure.len(); }
-  get(ident){ return this.closure.get(ident); }
-  set(ident, val){ this.closure.set(ident, val); }
+  eval(elem){
+    if(elem === null) return null;
+    if(elem.isIdent()) return this.get(elem.id);
+    return new Closure(elem, this.idents);
+  }
+
+  next(){
+    if(this.len() === 0) return null;
+    return this.func.elems[this.index++];
+  }
+
+  len(){ return this.func.elems.length - this.index; }
+  get(ident){ return this.idents[ident].get(); }
+  set(ident, val){ this.idents[ident].set(val); }
+  isMeta(){ return this.len() === 0; }
+
+  toString(full=0){
+    var elems = this.func.elems;
+    if(!full) elems = elems.slice(this.index);
+    return elems.join('');
+  }
+};
+
+class StackFrame extends Closure{
+  constructor(func, idents, arg=null){
+    if(arg !== null) arg = new Reference(arg);
+    super(func, idents, arg);
+    this.val = null;
+  }
+
+  call(closure, arg){
+    return new StackFrame(closure.func, closure.idents, arg);
+  }
 
   toString(){
-    var {closure} = this;
     var str = this.val !== null ? '[V]' : '[.]';
-    str += ' ' + closure;
+    str += ' ' + super.toString();
     str = str.padEnd(50);
 
     for(var ident in closure.idents){
@@ -152,56 +188,6 @@ class StackFrame{
     }
 
     return str;
-  }
-};
-
-class Closure{
-  constructor(from, idents=null, arg=null){
-    this.elems = from.elems;
-
-    var depth = from.depth;
-    this.depth = depth;
-
-    this.idents = O.obj();
-
-    for(var ident in from.idents){
-      ident |= 0;
-
-      if(ident <= depth - 2)
-        this.idents[ident] = idents[ident];
-    }
-
-    if((this.depth - 1) in from.idents)
-      this.idents[this.depth - 1] = new Reference(arg);
-
-    this.index = 0;
-  }
-
-  call(arg){
-    var closure = new Closure(this, this.idents, arg);
-    return new StackFrame(closure);
-  }
-
-  eval(elem){
-    if(elem === null) return null;
-    if(elem.isIdent()) return this.get(elem.id);
-    return new Closure(elem, this.idents);
-  }
-
-  next(){
-    if(this.len() === 0) return null;
-    return this.elems[this.index++];
-  }
-
-  len(){ return this.elems.length - this.index; }
-  get(ident){ return this.idents[ident].get(); }
-  set(ident, val){ this.idents[ident].set(val); }
-  isMeta(){ return this.len() === 0; }
-
-  toString(full=0){
-    var elems = this.elems;
-    if(!full) elems = elems.slice(this.index);
-    return elems.join('');
   }
 };
 

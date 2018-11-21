@@ -12,37 +12,45 @@ module.exports = {
 };
 
 function parse(buf){
-  var chains = [new Chain];
+  var funcs = [new Function];
+  var funcsSet = new Set(funcs);
 
   for(var {type, val} of tokenizer.tokenize(buf)){
     if(type === 0){
-      O.last(chains).push(new Identifier(val, chains.length));
+      O.last(funcs).push(new Identifier(val, funcs.length));
 
-      for(var i = val + 1; i !== chains.length; i++)
-        chains[i].addIdent(val)
+      for(var i = val + 1; i !== funcs.length; i++)
+        funcs[i].addIdent(val);
 
       continue;
     }
 
     if(val === 1){
-      chains.push(new Chain(chains.length));
+      var func = new Function(funcs.length);
+      funcs.push(func);
+      funcsSet.add(func);
     }else{
-      var chain = chains.pop();
-      O.last(chains).push(chain);
+      var func = funcs.pop();
+      O.last(funcs).push(func);
     }
   }
 
-  return chains[0];
+  for(var func of funcsSet)
+    func.finalize();
+
+  return funcs[0];
 }
 
 function meta(){
-  return new Chain;
+  return new Function().finalize();
 }
 
 class Element{
   constructor(){}
 
-  isChain(){ return null; }
+  isIdent(){ return 0; }
+  isFunc(){ return 0; }
+  isMeta(){ return 0; }
 };
 
 class Identifier extends Element{
@@ -54,7 +62,7 @@ class Identifier extends Element{
   }
 
   isIdent(){ return 1; }
-  isChain(){ return 0; }
+  isFunc(){ return 0; }
   isMeta(){ return 0; }
 
   toString(){
@@ -62,22 +70,35 @@ class Identifier extends Element{
   }
 };
 
-class Chain extends Element{
-  constructor(depth=0, elems=[], idents=O.obj()){
+class Function extends Element{
+  constructor(depth=0, elems=[], idents=new Set){
     super();
 
     this.depth = depth;
     this.elems = elems;
     this.idents = idents;
+
+    this.isArgUsed = 0;
   }
 
   len(){ return this.elems.length; }
   push(elem){ this.elems.push(elem); }
-  addIdent(ident){ this.idents[ident] = 1; }
 
+  addIdent(ident){
+    this.idents.add(ident);
+    if(ident === this.depth - 1)
+      this.isArgUsed = 1;
+  }
+
+  sortIdents(){ O.sortAsc(this.idents); }
   isIdent(){ return 0; }
-  isChain(){ return 1; }
+  isFunc(){ return 1; }
   isMeta(){ return this.len() === 0; }
+
+  finalize(){
+    this.idents = O.sortAsc(Array.from(this.idents));
+    return this;
+  }
 
   toString(){
     var depth = this.depth + 1;
