@@ -16,12 +16,19 @@ class Engine{
 
   save(){
     var ser = new Serializer();
+    return ser.getOutput();
   }
 
-  run(){
+  restore(buf){
+    var ser = new Serializer(buf);
+    return ser.getOutput();
+  }
+
+  run(ticksNum=null){
     const {stack} = this;
 
     while(stack.length !== 0){
+      if(ticksNum !== null && --ticksNum < 0) return 0;
       var frame = O.last(stack);
 
       if(frame.len() === 0){ // The current function is finished
@@ -101,6 +108,8 @@ class Engine{
 
       call(val, v);
     }
+
+    return 1;
 
     // Call the given function with the given argument
     function call(closure, arg){

@@ -11,14 +11,13 @@ module.exports = {
   run,
 };
 
-function run(src, input, encoding){
+function run(src, input, ticksNum, encoding){
   var engine = new Engine(src);
   var io = new IO(input);
 
   engine.read = io.read.bind(io);
   engine.write = io.write.bind(io);
 
-  engine.run();
-
+  if(!engine.run(ticksNum)) return null;
   return io.getOutput(encoding);
 }

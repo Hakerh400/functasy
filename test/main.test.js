@@ -2,13 +2,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 const assert = require('assert');
 const O = require('omikron');
 const functasy = require('..');
 const Serializer = require('../src/serializer');
 
-const TIMEOUT = 10e3;
+const TICKS_NUM = 100e3;
 const EXTENSION = 'txt';
 
 const cwd = __dirname;
@@ -33,11 +32,10 @@ describe('Engine', () => {
 
   function test(name, input, expected){
     var src = fs.readFileSync(path.join(programs, `${name}.${EXTENSION}`));
-    var actual = null;
+    var actual = functasy.run(src, input, TICKS_NUM, 'utf8');
 
-    var script = new vm.Script('run()');
-    var sandbox = vm.createContext({run(){ actual = functasy.run(src, input, 'utf8'); }});
-    script.runInContext(sandbox, {timeout: TIMEOUT});
+    if(actual === null)
+      throw new Error(`The program didn\'t complete in ${TICKS_NUM} ticks`);
 
     assert.strictEqual(actual, expected);
   }
@@ -62,7 +60,10 @@ describe('Serializer', () => {
 
     ser.write(37, 131);
     ser.write(22, 22);
+    ser.write(0, 0);
+    ser.write(0, 0);
     ser.write(101, 153);
+    ser.write(0, 0);
     ser.write(1023, 1023);
     ser.write(1023, 1024);
 
@@ -70,12 +71,17 @@ describe('Serializer', () => {
 
     assert.strictEqual(ser.read(), 0);
     assert.strictEqual(ser.read(1), 1);
+    assert.strictEqual(ser.read(0), 0);
     assert.strictEqual(ser.read(3), 2);
 
     assert.strictEqual(ser.read(131), 37);
+    assert.strictEqual(ser.read(0), 0);
     assert.strictEqual(ser.read(22), 22);
+    assert.strictEqual(ser.read(0), 0);
     assert.strictEqual(ser.read(153), 101);
     assert.strictEqual(ser.read(1023), 1023);
+    assert.strictEqual(ser.read(0), 0);
+    assert.strictEqual(ser.read(0), 0);
     assert.strictEqual(ser.read(1024), 1023);
   });
 
