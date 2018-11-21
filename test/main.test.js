@@ -15,7 +15,7 @@ const programs = path.join(cwd, 'programs');
 
 describe('Engine', () => {
   it('Hello, World!', () => {
-    // Print "Hello, World!""
+    // Print "Hello, World!"
     var name = 'hello-world';
     var input = randStr();
     var output = 'Hello, World!';
@@ -41,7 +41,7 @@ describe('Engine', () => {
   }
 
   function randStr(){
-    return O.ca(O.rand(20, 30), () => randChar()).join('');
+    return O.ca(O.rand(10, 30), () => randChar()).join('');
   }
 
   function randChar(){
