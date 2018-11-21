@@ -9,19 +9,59 @@ const Serializer = require('./serializer');
 class Engine{
   constructor(src){
     var func = parser.parse(Buffer.from(src));
-
     this.stack = [new StackFrame(func)];
-    this.meta = new Closure(parser.meta());
   }
 
   save(){
+    /**
+     * Export the current state of the engine,
+     * so that it can be restored later
+     */
+
+    const {stack} = this;
     var ser = new Serializer();
+
+    var funcs = new Map();
+    var refs = new Map();
+
+    // For each stack frame
+    for(var frame of stack){
+      ser.write(1); // Another stack frame
+
+      // This is the function template used by the current stack frame
+      var func = frame.func;
+
+      if(funcs.has(func)){ // The function template is already seen
+        ser.write(0); // Known template
+        ser.write(funcs.get(func), funcs.size - 1); // Template index
+      }else{ // The function template is not seen before
+        ser.write(1); // New template
+        funcs.set(func, funcs.size); // Add to known templates
+      }
+    }
+
+    // Save all function templates
+    for(var func of funcs){
+      /**
+       * Number of function templates is known, so there
+       * is no need to specify it again
+       */
+
+      ser.writeInt(func.depth) // Write function's depth
+
+      // Iterate over function's elements
+      for(var elem of func.elems){
+        ser.write(1); // Another element
+      }
+
+      ser.write(0); // No more elements
+    }
+
     return ser.getOutput();
   }
 
   restore(buf){
     var ser = new Serializer(buf);
-    return ser.getOutput();
   }
 
   run(ticksNum=null){
@@ -34,7 +74,7 @@ class Engine{
       if(frame.len() === 0){ // The current function is finished
         if(frame.val === null){ // Meta function is called
           // When called, meta function returns itself
-          frame.val = this.meta;
+          frame.val = new Closure(frame.func);
           continue;
         }
 

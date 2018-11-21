@@ -23,7 +23,7 @@ describe('Engine', () => {
   });
 
   it('Cat', () => {
-    // The cat program is a program that copies its input to its output.
+    // The cat program is a program that copies its input to its output
     var name = 'cat';
     var input = randStr();
     var output = input;
@@ -35,7 +35,7 @@ describe('Engine', () => {
     var actual = functasy.run(src, input, TICKS_NUM, 'utf8');
 
     if(actual === null)
-      throw new Error(`The program didn\'t complete in ${TICKS_NUM} ticks`);
+      throw new Error(`The program did not complete in ${TICKS_NUM} ticks`);
 
     assert.strictEqual(actual, expected);
   }
@@ -65,6 +65,8 @@ describe('Serializer', () => {
     ser.write(101, 153);
     ser.write(0, 0);
     ser.write(1023, 1023);
+    ser.writeInt(11547);
+    ser.writeInt(0);
     ser.write(1023, 1024);
 
     ser = new Serializer(ser.getOutput());
@@ -82,6 +84,8 @@ describe('Serializer', () => {
     assert.strictEqual(ser.read(1023), 1023);
     assert.strictEqual(ser.read(0), 0);
     assert.strictEqual(ser.read(0), 0);
+    assert.strictEqual(ser.readInt(), 11547);
+    assert.strictEqual(ser.readInt(), 0);
     assert.strictEqual(ser.read(1024), 1023);
   });
 

@@ -10,6 +10,24 @@ class Serializer extends IO{
     super(buf, 1);
   }
 
+  write(num, max=1){
+    if(max === 0) return;
+
+    var mask = 1 << 31 - Math.clz32(max);
+    var limit = 1;
+
+    while(mask !== 0){
+      if(!limit || (max & mask)){
+        var bit = num & mask ? 1 : 0;
+        super.write(bit);
+        if(!bit) limit = 0;
+      }
+      mask >>= 1;
+    }
+
+    return num;
+  }
+
   read(max=1){
     if(max === 0) return 0;
 
@@ -30,22 +48,29 @@ class Serializer extends IO{
     return num;
   }
 
-  write(num, max=1){
-    if(max === 0) return;
+  writeInt(num){
+    num++;
 
-    var mask = 1 << 31 - Math.clz32(max);
-    var limit = 1;
-
-    while(mask !== 0){
-      if(!limit || (max & mask)){
-        var bit = num & mask ? 1 : 0;
-        super.write(bit);
-        if(!bit) limit = 0;
-      }
-      mask >>= 1;
+    while(num !== 1){
+      super.write(1);
+      super.write(num & 1);
+      num >>= 1;
     }
 
-    return num;
+    super.write(0);
+  }
+
+  readInt(){
+    var num = 0;
+    var mask = 1;
+
+    while(super.read()){
+      if(super.read())
+        num |= mask;
+      mask <<= 1;
+    }
+
+    return (num | mask) - 1;
   }
 
   getOutput(encoding=null, trim=1){

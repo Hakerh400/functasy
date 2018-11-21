@@ -8,7 +8,6 @@ const {toId, toName} = require('./idents');
 
 module.exports = {
   parse,
-  meta,
 };
 
 function parse(buf){
@@ -39,10 +38,6 @@ function parse(buf){
     func.finalize();
 
   return funcs[0];
-}
-
-function meta(){
-  return new Function().finalize();
 }
 
 class Element{
