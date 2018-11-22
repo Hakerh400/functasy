@@ -10,12 +10,15 @@ class Engine{
   constructor(src){
     this.funcs = parser.parse(Buffer.from(src));
     this.mainFunc = this.funcs.keys().next().value;
-    this.stack = [new StackFrame(this.mainFunc)];
+    this.stack = [new StackFrame(new Closure(this.mainFunc))];
+
+    this.read = O.nop;
+    this.write = O.nop;
   }
 
   reset(){
     this.stack.length = 0;
-    this.stack.push(new StackFrame(this.mainFunc));
+    this.stack.push(new StackFrame(new Closure(this.mainFunc)));
   }
 
   run(ticksNum=null){
@@ -70,7 +73,7 @@ class Engine{
             frame.val = n;
           }else{                    // Case 3: [empty] [function]
             // Read the next bit
-            if(this.read()){
+            if(this.read() & 1){
               // If the next bit is 1, call the function
               call(n, v);
             }else{
@@ -125,40 +128,15 @@ class Engine{
 
   save(){
     /**
-     * Export the current state of the engine,
-     * so that it can be imported later
+     * Save the current state of the engine,
+     * so that it can be loaded later
      */
 
     const {funcs} = this;
-    var ser = new Serializer();
+    const ser = new Serializer();
 
-    /**
-     * Save all functions
-     */
-
-    var stack = [this.mainFunc.elems.slice()];
-
-    while(stack.length !== 0){
-      var frame = O.last(stack);
-
-      if(frame.length === 0){
-        ser.write(0); // No more elements
-        stack.pop()
-        continue;
-      }
-
-      var elem = frame.shift();
-      ser.write(1); // Another element
-
-      var isIdent = elem.isIdent(); // Check if the element is an identifier
-      if(stack.length !== 1) ser.write(!isIdent); // Save the type of the element
-
-      if(isIdent){ // If the element is an identifier
-        ser.write(elem.id, stack.length - 2); // Save the identifier's id
-      }else{ // If the element is a function
-        stack.push(elem.elems.slice()) // Push function's elements to the stack
-      }
-    }
+    // Save the main function including all nested functions
+    parser.serialize(ser, this.mainFunc);
 
     /**
      * Save the stack including all accessible closures
@@ -168,10 +146,40 @@ class Engine{
 
     for(var frame of this.stack){
       ser.write(1); // Another stack frame
+      saveRef(new Reference(frame.closure)); // Save frame's closure as a new reference
     }
     ser.write(0); // No more stack frames
 
+    // Return the saved engine state as a buffer
     return ser.getOutput();
+
+    function saveRef(ref){
+      // Prepare a new queue
+      var queue = [ref];
+
+      while(queue.length !== 0){
+        // Obtain the closure from the next reference
+        var closure = queue.shift().get();
+
+        if(refs.has(closure)){ // If the closure is already saved
+          ser.write(0); // Old closure
+          ser.write(refs.get(closure), refs.size - 1); // Closure's index
+          return;
+        }
+
+        /**
+         * If the closure isn't already saved, iterate over
+         * its references and save each of them
+         */
+
+        ser.write(1); // New closure
+        ser.write(funcs.get(closure.func), funcs.size - 1) // Save closure's function
+
+        // Push all closure's references into the queue
+        for(var ident of closure.func.idents)
+          queue.push(closure.idents[ident]);
+       }
+    }
   }
 
   load(buf){
@@ -181,72 +189,74 @@ class Engine{
 
 module.exports = Engine;
 
-class Closure{
-  constructor(func, idents, arg=null){
-    this.func = func;
-    this.idents = O.obj();
-
-    for(var ident of func.idents){
-      if(ident >= func.depth) break;
-      this.idents[ident] = idents[ident];
-    }
-
-    if(arg !== null && func.isArgUsed)
-      this.idents[this.func.depth - 1] = arg;
-
+class StackFrame{
+  constructor(closure, arg=null){
+    this.closure = closure;
+    this.arg = arg !== null ? new Reference(arg) : null;
+    this.val = null;
     this.index = 0;
   }
 
-  eval(elem){
-    if(elem === null) return null;
-    if(elem.isIdent()) return this.get(elem.id);
-    return new Closure(elem, this.idents);
+  len(){
+    return this.closure.func.elems.length - this.index;
   }
 
   next(){
     if(this.len() === 0) return null;
-    return this.func.elems[this.index++];
+    return this.closure.func.elems[this.index++];
   }
 
-  len(){ return this.func.elems.length - this.index; }
-  get(ident){ return this.idents[ident].get(); }
-  set(ident, val){ this.idents[ident].set(val); }
-  isMeta(){ return this.len() === 0; }
+  eval(elem){
+    if(elem === null) return null;
 
-  toString(full=0){
-    var elems = this.func.elems;
-    if(!full) elems = elems.slice(this.index);
-    return elems.join('');
-  }
-};
+    if(elem.isIdent()){
+      if(elem.id === this.closure.func.depth - 1)
+        return this.arg.get();
+      return this.closure.get(elem.id);
+    }
 
-class StackFrame extends Closure{
-  constructor(func, idents, arg=null){
-    if(arg !== null) arg = new Reference(arg);
-    super(func, idents, arg);
-    this.val = null;
+    return new Closure(elem, this.closure.idents, this.arg);
   }
 
   call(closure, arg){
-    return new StackFrame(closure.func, closure.idents, arg);
+    return new StackFrame(closure, arg);
   }
 
-  toString(){
-    var str = this.val !== null ? '[V]' : '[.]';
-    str += ' ' + super.toString();
-    str = str.padEnd(50);
+  get(ident){
+    if(ident === this.closure.func.depth - 1)
+      return this.arg.get();
+    return this.closure.get(ident);
+  }
 
-    for(var ident in closure.idents){
+  set(ident, val){
+    if(ident === this.closure.func.depth - 1)
+      return this.arg.set(val);
+    return this.closure.set(ident, val);
+  }
+
+  isMeta(){ return this.closure.isMeta(); }
+};
+
+class Closure{
+  constructor(func, idents, arg){
+    this.func = func;
+    this.idents = O.obj();
+
+    for(var ident of func.idents){
       ident |= 0;
-      var val = this.get(ident);
-      if(val === null) continue;
-      str += parser.toName(ident) + ': ';
-      str += `(${val.toString(1)})`;
-      str += ' '.repeat(3);
-    }
 
-    return str;
+      if(ident === this.func.depth - 2){
+        this.idents[ident] = arg;
+        break;
+      }
+
+      this.idents[ident] = idents[ident];
+    }
   }
+
+  get(ident){ return this.idents[ident].get(); }
+  set(ident, val){ this.idents[ident].set(val); }
+  isMeta(){ return this.func.isMeta(); }
 };
 
 class Reference{

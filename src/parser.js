@@ -8,6 +8,8 @@ const {toId, toName} = require('./idents');
 
 module.exports = {
   parse,
+  serialize,
+  deserialize,
 };
 
 function parse(buf){
@@ -18,26 +20,59 @@ function parse(buf){
     if(type === 0){
       O.last(stack).push(new Identifier(val, stack.length));
 
-      for(var i = val + 1; i !== stack.length; i++)
+      for(var i = val + 2; i !== stack.length; i++)
         stack[i].addIdent(val);
 
       continue;
     }
 
-    if(val === 1){
-      var func = new Function(stack.length);
-      stack.push(func);
-      funcs.set(func, funcs.size);
-    }else{
+    if(val === 0){
       var func = stack.pop();
       O.last(stack).push(func);
+      continue;
     }
+    
+    var func = new Function(stack.length);
+    stack.push(func);
+    funcs.set(func, funcs.size);
   }
 
   for(var func of funcs.keys())
     func.finalize();
 
   return funcs;
+}
+
+function serialize(ser, func){
+  var stack = [func.elems.slice()];
+
+  while(stack.length !== 0){
+    var frame = O.last(stack);
+
+    if(frame.length === 0){
+      ser.write(0); // No more elements
+      stack.pop();
+      continue;
+    }
+
+    var elem = frame.shift();
+    ser.write(1); // Another element
+
+    var isIdent = elem.isIdent(); // Check if the element is an identifier
+    if(stack.length !== 1) ser.write(!isIdent); // Save the type of the element
+
+    if(isIdent){ // If the element is an identifier
+      ser.write(elem.id, stack.length - 2); // Save the identifier's id
+    }else{ // If the element is a function
+      stack.push(elem.elems.slice()) // Push function's elements to the stack
+    }
+  }
+
+  return ser;
+}
+
+function deserialize(ser){
+  return ser;
 }
 
 class Element{
