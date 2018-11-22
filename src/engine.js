@@ -8,8 +8,14 @@ const Serializer = require('./serializer');
 
 class Engine{
   constructor(src){
-    var func = parser.parse(Buffer.from(src));
-    this.stack = [new StackFrame(func)];
+    this.funcs = parser.parse(Buffer.from(src));
+    this.mainFunc = this.funcs.keys().next().value;
+    this.stack = [new StackFrame(this.mainFunc)];
+  }
+
+  reset(){
+    this.stack.length = 0;
+    this.stack.push(new StackFrame(this.mainFunc));
   }
 
   run(ticksNum=null){
@@ -120,58 +126,55 @@ class Engine{
   save(){
     /**
      * Export the current state of the engine,
-     * so that it can be restored later
+     * so that it can be imported later
      */
 
-    const {stack} = this;
+    const {funcs} = this;
     var ser = new Serializer();
 
-    var funcs = new Map();
+    /**
+     * Save all functions
+     */
+
+    var stack = [this.mainFunc.elems.slice()];
+
+    while(stack.length !== 0){
+      var frame = O.last(stack);
+
+      if(frame.length === 0){
+        ser.write(0); // No more elements
+        stack.pop()
+        continue;
+      }
+
+      var elem = frame.shift();
+      ser.write(1); // Another element
+
+      var isIdent = elem.isIdent(); // Check if the element is an identifier
+      if(stack.length !== 1) ser.write(!isIdent); // Save the type of the element
+
+      if(isIdent){ // If the element is an identifier
+        ser.write(elem.id, stack.length - 2); // Save the identifier's id
+      }else{ // If the element is a function
+        stack.push(elem.elems.slice()) // Push function's elements to the stack
+      }
+    }
+
+    /**
+     * Save the stack including all accessible closures
+     */
+
     var refs = new Map();
 
-    // Write all stack frames
-    for(var frame of stack){
+    for(var frame of this.stack){
       ser.write(1); // Another stack frame
-
-      // This is the function template used by the current stack frame
-      var func = frame.func;
-
-      if(funcs.has(func)){ // The function template is already seen
-        ser.write(0); // Known template
-        ser.write(funcs.get(func), funcs.size - 1); // Template index
-      }else{ // The function template is not seen before
-        ser.write(1); // New template
-        ser.writeInt(func.depth) // Write depth
-        ser.writeInt(func.elems.length) // Write number of elements
-        funcs.set(func, funcs.size); // Add to known templates
-      }
-
-      ser.write(frame.len(), func.elems.length) // Write number of elements
     }
-
     ser.write(0); // No more stack frames
-
-    // Write all function templates
-    for(var func of funcs){
-      /**
-       * Number of function templates is known, so there
-       * is no need to specify it again
-       */
-
-      ser.writeInt(func.depth) // Write function's depth
-
-      // Iterate over function's elements
-      for(var elem of func.elems){
-        ser.write(1); // Another element
-      }
-
-      ser.write(0); // No more elements
-    }
 
     return ser.getOutput();
   }
 
-  restore(buf){
+  load(buf){
     var ser = new Serializer(buf);
   }
 };

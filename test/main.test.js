@@ -127,4 +127,33 @@ describe('Serializer', () => {
     assert.ok(ser.getOutput(null, 0).length > 2);
     assert.strictEqual(ser.getOutput('hex'), '0001');
   });
+
+  it('Works for non-integer values', () => {
+    var ser = new Serializer();
+
+    ser.write(true);
+    ser.write(false);
+    ser.write('123', '200');
+    ser.writeInt([75]);
+    ser.write({toString(){ return '1'; }});
+    ser.write();
+    ser.writeInt();
+    ser.write(NaN);
+    ser.writeInt(null);
+    ser.writeInt(50);
+
+    ser = new Serializer(ser.getOutput());
+
+    assert.strictEqual(ser.read(), 1);
+    assert.strictEqual(ser.read(), 0);
+    assert.strictEqual(ser.read([200]), 123);
+    assert.strictEqual(ser.readInt(), 75);
+    assert.strictEqual(ser.read(), 1);
+    assert.strictEqual(ser.read(), 0);
+    assert.strictEqual(ser.readInt(), 0);
+    assert.strictEqual(ser.read(), 0);
+    assert.strictEqual(ser.readInt(), 0);
+    assert.strictEqual(ser.readInt(), 50);
+    assert.strictEqual(ser.readInt(), 0);
+  });
 });

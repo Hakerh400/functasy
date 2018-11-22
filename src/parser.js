@@ -11,33 +11,33 @@ module.exports = {
 };
 
 function parse(buf){
-  var funcs = [new Function];
-  var funcsSet = new Set(funcs);
+  var stack = [new Function];
+  var funcs = new Map([[stack[0], 0]]);
 
   for(var {type, val} of tokenizer.tokenize(buf)){
     if(type === 0){
-      O.last(funcs).push(new Identifier(val, funcs.length));
+      O.last(stack).push(new Identifier(val, stack.length));
 
-      for(var i = val + 1; i !== funcs.length; i++)
-        funcs[i].addIdent(val);
+      for(var i = val + 1; i !== stack.length; i++)
+        stack[i].addIdent(val);
 
       continue;
     }
 
     if(val === 1){
-      var func = new Function(funcs.length);
-      funcs.push(func);
-      funcsSet.add(func);
+      var func = new Function(stack.length);
+      stack.push(func);
+      funcs.set(func, funcs.size);
     }else{
-      var func = funcs.pop();
-      O.last(funcs).push(func);
+      var func = stack.pop();
+      O.last(stack).push(func);
     }
   }
 
-  for(var func of funcsSet)
+  for(var func of funcs.keys())
     func.finalize();
 
-  return funcs[0];
+  return funcs;
 }
 
 class Element{

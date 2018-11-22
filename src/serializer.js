@@ -11,6 +11,8 @@ class Serializer extends IO{
   }
 
   write(num, max=1){
+    num |= 0;
+    max |= 0;
     if(max === 0) return;
 
     var mask = 1 << 31 - Math.clz32(max);
@@ -29,6 +31,7 @@ class Serializer extends IO{
   }
 
   read(max=1){
+    max |= 0;
     if(max === 0) return 0;
 
     var mask = 1 << 31 - Math.clz32(max);
@@ -49,7 +52,7 @@ class Serializer extends IO{
   }
 
   writeInt(num){
-    num++;
+    num = (num | 0) + 1;
 
     while(num !== 1){
       super.write(1);
