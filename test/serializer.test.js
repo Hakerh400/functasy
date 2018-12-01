@@ -7,48 +7,6 @@ const O = require('omikron');
 const functasy = require('..');
 const Serializer = require('../src/serializer');
 
-const TICKS_NUM = 100e3;
-const EXTENSION = 'txt';
-
-const cwd = __dirname;
-const programs = path.join(cwd, 'programs');
-
-describe('Engine', () => {
-  it('Hello, World!', () => {
-    // Print "Hello, World!"
-    var name = 'hello-world';
-    var input = randStr();
-    var output = 'Hello, World!';
-    test(name, input, output);
-  });
-
-  it('Cat', () => {
-    // The cat program is a program that copies its input to its output
-    var name = 'cat';
-    var input = randStr();
-    var output = input;
-    test(name, input, output);
-  });
-
-  function test(name, input, expected){
-    var src = fs.readFileSync(path.join(programs, `${name}.${EXTENSION}`));
-    var actual = functasy.run(src, input, TICKS_NUM, 'utf8');
-
-    if(actual === null)
-      throw new Error(`The program did not complete in ${TICKS_NUM} ticks`);
-
-    assert.strictEqual(actual, expected);
-  }
-
-  function randStr(){
-    return O.ca(O.rand(10, 30), () => randChar()).join('');
-  }
-
-  function randChar(){
-    return O.sfcc(O.rand(32, 126));
-  }
-});
-
 describe('Serializer', () => {
   it('Properly handles integers', () => {
     var ser = new Serializer();

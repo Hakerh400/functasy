@@ -5,7 +5,7 @@ const path = require('path');
 const O = require('omikron');
 const {toId, toName} = require('./idents');
 
-const LOG_STR = 1;
+const LOG_STR = 0;
 
 const MAX_LINE_LEN = 80;
 const INITIAL_DEPTH = 11;

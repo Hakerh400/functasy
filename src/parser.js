@@ -6,74 +6,117 @@ const O = require('omikron');
 const tokenizer = require('./tokenizer');
 const {toId, toName} = require('./idents');
 
-module.exports = {
-  parse,
-  serialize,
-  deserialize,
-};
+class Parser{
+  constructor(){
+    this.stack = [new Function];
+    this.funcs = new Map([[this.stack[0], 0]]);
+  }
 
-function parse(buf){
-  var stack = [new Function];
-  var funcs = new Map([[stack[0], 0]]);
+  add(type, val){
+    const {stack, funcs} = this;
 
-  for(var {type, val} of tokenizer.tokenize(buf)){
-    if(type === 0){
+    /**
+     * Type:
+     *   0 - Identifier
+     *   1 - Function
+     * Value:
+     *   For identifier: id
+     *   For function:
+     *     0 - Function end
+     *     1 - Function start
+     */
+
+    if(type === 0){ // Identifier
       O.last(stack).push(new Identifier(val, stack.length));
 
       for(var i = val + 2; i !== stack.length; i++)
         stack[i].addIdent(val);
 
-      continue;
+      return;
     }
 
-    if(val === 0){
+    if(val === 0){ // Function end
       var func = stack.pop();
       O.last(stack).push(func);
-      continue;
+      return;
     }
     
+    // Function start
     var func = new Function(stack.length);
     stack.push(func);
     funcs.set(func, funcs.size);
   }
 
-  for(var func of funcs.keys())
-    func.finalize();
-
-  return funcs;
-}
-
-function serialize(ser, func){
-  var stack = [func.elems.slice()];
-
-  while(stack.length !== 0){
-    var frame = O.last(stack);
-
-    if(frame.length === 0){
-      ser.write(0); // No more elements
-      stack.pop();
-      continue;
-    }
-
-    var elem = frame.shift();
-    ser.write(1); // Another element
-
-    var isIdent = elem.isIdent(); // Check if the element is an identifier
-    if(stack.length !== 1) ser.write(!isIdent); // Save the type of the element
-
-    if(isIdent){ // If the element is an identifier
-      ser.write(elem.id, stack.length - 2); // Save the identifier's id
-    }else{ // If the element is a function
-      stack.push(elem.elems.slice()) // Push function's elements to the stack
-    }
+  finalize(){
+    for(var func of this.funcs.keys())
+      func.finalize();
   }
 
-  return ser;
-}
+  static parse(buf){
+    const parser = new Parser;
 
-function deserialize(ser){
-  return ser;
-}
+    for(var {type, val} of tokenizer.tokenize(buf))
+      parser.add(type, val);
+
+    parser.finalize();
+    return parser.funcs;
+  }
+
+  static serialize(ser, func){
+    const stack = [func.elems.slice()];
+
+    while(stack.length !== 0){
+      var frame = O.last(stack);
+
+      if(frame.length === 0){
+        ser.write(0); // No more elements
+        stack.pop();
+        continue;
+      }
+
+      var elem = frame.shift();
+      ser.write(1); // Another element
+
+      var isIdent = elem.isIdent(); // Check if the element is an identifier
+      if(stack.length !== 1) ser.write(!isIdent); // Write the type of the element
+
+      if(isIdent) // If the element is an identifier
+        ser.write(elem.id, stack.length - 2); // Write the identifier's id
+      else // If the element is a function
+        stack.push(elem.elems.slice()) // Push function's elements to the stack
+      
+    }
+
+    return ser;
+  }
+
+  static deserialize(ser){
+    const parser = new Parser;
+    const {stack} = parser;
+
+    while(1){
+      if(!ser.read()){ // No more elements
+        if(stack.length === 1) // Main function is finished
+          break;
+
+        parser.add(1, 0); // End of the current function
+        continue;
+      }
+
+      if(stack.length !== 1 && !ser.read()){ // Identifier
+        parser.add(0, ser.read(stack.length - 2)); // Read the identifier's id
+        continue;
+      }
+
+      parser.add(1, 1); // Start of a new function
+    }
+
+    parser.finalize();
+    return parser.funcs;
+  }
+};
+
+module.exports = Parser;
 
 class Element{
   constructor(){}
@@ -96,7 +139,7 @@ class Identifier extends Element{
   isMeta(){ return 0; }
 
   toString(){
-    return tokenizer.toName(this.id, this.depth);
+    return toName(this.id, this.depth);
   }
 };
 
@@ -130,11 +173,11 @@ class Function extends Element{
     return this;
   }
 
-  toString(){
+  toString(parens=1, index=0){
     var depth = this.depth + 1;
     var str = '';
 
-    var stack = [this.elems.slice()];
+    var stack = [this.elems.slice(index)];
 
     while(stack.length !== 0){
       var arr = O.last(stack);
@@ -158,7 +201,7 @@ class Function extends Element{
       stack.push(elem.elems.slice());
     }
 
-    if(depth !== 0) str = `(${str})`;
+    if(parens) str = `(${str})`;
     return str;
   }
 };

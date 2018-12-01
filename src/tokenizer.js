@@ -15,8 +15,8 @@ module.exports = {
 };
 
 function tokenize(buf){
-  if(PREPROCESSOR_ENABLED)
-    buf = preproc(buf);
+  if(buf[0] === 0x00)
+    buf = preproc(Buffer.from(buf.slice(1)));
 
   var tokens = [];
 
@@ -137,10 +137,5 @@ function *iter(buf){
 }
 
 function error(msg){
-  log(msg);
-  exit(1);
-}
-
-function exit(code){
-  process.exit(code);
+  throw new SyntaxError(`\n${msg}`);
 }
