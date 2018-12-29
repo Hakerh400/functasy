@@ -3,10 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const O = require('omikron');
-const preproc = require('./preproc');
 const {toId, toName} = require('./idents');
-
-const PREPROCESSOR_ENABLED = process.argv.slice(2).includes('-preproc');
 
 const WHITESPACE_CHARS = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0];
 
@@ -15,9 +12,6 @@ module.exports = {
 };
 
 function tokenize(buf){
-  if(buf[0] === 0x00)
-    buf = preproc(Buffer.from(buf.slice(1)));
-
   var tokens = [];
 
   for(var token of iter(buf))

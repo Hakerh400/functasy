@@ -7,10 +7,10 @@ const Engine = require('./engine');
 const IO = require('./io');
 
 class EngineWithIO extends Engine{
-  constructor(src, input=''){
+  constructor(src, input='', ioCtor=IO, pad=0){
     super(src);
 
-    const io = new IO(input);;
+    const io = new ioCtor(input, pad);
     this.io = io;
 
     this.read = io.read.bind(io);

@@ -5,15 +5,22 @@ const path = require('path');
 const O = require('omikron');
 
 class IO{
-  constructor(input='', mode=0){
+  constructor(input='', pad=0){
     this.input = Buffer.from(input);
     this.output = Buffer.alloc(1);
 
-    this.mode = mode;
+    this.pad = pad;
 
-    this.inputIndex = mode ? 1 : 0;
+    this.inputIndex = pad ? 0 : 1;
     this.outputIndex = 0;
     this.byte = 0;
+  }
+
+  static name(){ return 'Standard'; }
+  static isBit(){ return 0; }
+
+  hasMore(){
+    return (this.inputIndex >> 4) < this.input.length;
   }
 
   read(){
@@ -21,7 +28,7 @@ class IO{
     var i = this.inputIndex;
 
     if((i >> 4) >= input.length) return 0;
-    this.inputIndex += this.mode ? 2 : 1;
+    this.inputIndex += this.pad ? 1 : 2;
 
     if((i & 1) === 0) return 1;
     return input[i >> 4] & (1 << ((i >> 1) & 7)) ? 1 : 0;

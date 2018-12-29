@@ -6,8 +6,7 @@ const O = require('omikron');
 const Parser = require('./parser');
 const Serializer = require('./serializer');
 
-const TAB_SIZE = 2;
-const TAB = ' '.repeat(TAB_SIZE);
+const DEBUG = 0;
 
 class Engine{
   constructor(src){
@@ -16,8 +15,8 @@ class Engine{
     this.stack = [new StackFrame(new Closure(this.mainFunc))];
   }
 
-  read(){ throw new TypeError('Cannot perform abstract method "read"'); }
-  write(){ throw new TypeError('Cannot perform abstract method "write"'); }
+  read(){ throw new TypeError('Cannot perform virtual method "read"'); }
+  write(){ throw new TypeError('Cannot perform virtual method "write"'); }
 
   reset(){
     this.stack.length = 0;
@@ -29,19 +28,27 @@ class Engine{
 
     while(stack.length !== 0){
       if(ticksNum !== null && --ticksNum < 0) return 0;
+
+      if(DEBUG){
+        log('\n' + '-'.repeat(150) + '\n');
+        require('../../JavaScript/debug')(stack.map(f => {
+          log(f.toString());
+        }).join(''));
+      }
+
       var frame = O.last(stack);
 
       if(frame.len() === 0){ // The current function is finished
-        if(frame.val === null) // Meta function is called
+        if(!frame.hasVal()) // Meta function is called
           // When called, meta function returns itself
-          frame.val = new Closure(frame.closure.func);
+          frame.setVal(new Closure(frame.closure.func));
 
         // Pop the last stack frame
         stack.pop();
 
         // If this was not the last function, put the value on the previous frame
         if(stack.length !== 0)
-          O.last(stack).val = frame.val;
+          O.last(stack).setVal(frame.getVal());
 
         continue;
       }
@@ -51,7 +58,7 @@ class Engine{
       var len = frame.len();
 
       // val - old value, v - new value
-      var val = frame.val;
+      var val = frame.getVal();
       var v = frame.eval(elem);
 
       if(v.isMeta()){ // Meta function
@@ -66,31 +73,39 @@ class Engine{
         if(val === null){
           if(next === null){        // Case 1: [empty] [empty]
             // Initialize the stack frame with the meta function
-            frame.val = v;
+            if(DEBUG) log('Initialize the stack frame with the meta function');
+            frame.setVal(v);
           }else if(next.isIdent()){ // Case 2: [empty] [identifier]
             // Output 1
+            if(DEBUG) log('Output 1');
             this.write(1);
             // Evaluate the next element and save it in the frame value
-            frame.val = n;
+            frame.setVal(n);
           }else{                    // Case 3: [empty] [function]
             // Read the next bit
+            if(DEBUG) log('Read the next bit');
             if(this.read() & 1){
               // If the next bit is 1, call the function
+              if(DEBUG) log('The bit is 1, call the function');
               call(n, v);
             }else{
               // If the next bit is 0, return the function
-              frame.val = n;
+              if(DEBUG) log('The bit is 0, return the function');
+              frame.setVal(n);
             }
           }
         }else{
           if(next === null){        // Case 4: [value] [empty]
             // Output 0
+            if(DEBUG) log('Output 0');
             this.write(0);
           }else if(next.isIdent()){ // Case 5: [value] [identifier]
             // Update the value associated with the given identifier
+            if(DEBUG) log('Update the value associated with the given identifier');
             frame.set(next.id, val);
           }else{                    // Case 6: [value] [function]
             // Perform the call in the reversed order
+            if(DEBUG) log('Perform the call in the reversed order');
             call(n, val);
           }
         }
@@ -100,7 +115,7 @@ class Engine{
 
       if(val === null){ // There is nothing on the current stack frame
         // Initialize the stack frame value
-        frame.val = v;
+        frame.setVal(v);
         continue;
       }
 
@@ -143,21 +158,43 @@ class Engine{
      * Save the stack including all accessible closures
      */
 
-    var closures = new Map();
+    const clos = new Map();
+    const refs = new Map();
 
-    for(var frame of this.stack){
+    this.stack.forEach((frame, index) => {
+      const {closure} = frame;
+
       ser.write(1); // Another stack frame
-      saveRef(new Reference(frame.closure)); // Save frame's closure as a new reference
-      ser.write(frame.index, frame.total()); // Save current index
 
-      if(frame.val === null){ // If there is no value in the current frame
-        ser.write(0); // Has no value
-        continue;
+      if(index === 0){
+        if(closure.func === this.mainFunc){
+          ser.write(0);
+          saveMainClos();
+        }else{
+          ser.write(1);
+          saveClos(closure);
+        }
+      }else{
+        saveClos(closure);
       }
 
-      ser.write(1); // Has a value
-      saveRef(new Reference(frame.val)); // Save frame's value
-    }
+      if(closure.func.isArgUsed){
+        ser.write(1);
+        saveRef(frame.arg); // Save frame's argument
+      }else{
+        ser.write(0);
+      }
+
+      ser.write(frame.index, frame.total()); // Save current index
+
+      if(!frame.hasVal()){ // If there is no value in the current frame
+        ser.write(0); // Has no value
+      }else{
+        ser.write(1); // Has a value
+        saveRef(new Reference(frame.getVal())); // Save frame's value
+      }
+
+    });
     ser.write(0); // No more stack frames
 
     // Return the saved engine state as a buffer
@@ -222,7 +259,7 @@ class Engine{
       if(!ser.read()) // If there is no value in the current frame
         continue;
 
-      frame.val = loadRef(); // Load frame's value
+      frame.setVal(loadRef()); // Load frame's value
     }
 
     function loadRef(){
@@ -270,10 +307,25 @@ module.exports = Engine;
 
 class StackFrame{
   constructor(closure, arg=null){
+    if(!closure.func.isArgUsed)
+      arg = null;
+
     this.closure = closure;
     this.arg = arg !== null ? new Reference(arg) : null;
     this.val = null;
     this.index = 0;
+  }
+
+  hasVal(){
+    return this.val !== null;
+  }
+
+  getVal(){
+    return this.val;
+  }
+
+  setVal(val){
+    this.val = val;
   }
 
   total(){

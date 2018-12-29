@@ -29,7 +29,7 @@ class Parser{
     if(type === 0){ // Identifier
       O.last(stack).push(new Identifier(val, stack.length));
 
-      for(var i = val + 2; i !== stack.length; i++)
+      for(var i = val + 1; i !== stack.length; i++)
         stack[i].addIdent(val);
 
       return;
@@ -158,9 +158,10 @@ class Function extends Element{
   push(elem){ this.elems.push(elem); }
 
   addIdent(ident){
-    this.idents.add(ident);
     if(ident === this.depth - 1)
       this.isArgUsed = 1;
+    else
+      this.idents.add(ident);
   }
 
   sortIdents(){ O.sortAsc(this.idents); }

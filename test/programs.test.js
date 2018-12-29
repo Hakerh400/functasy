@@ -6,7 +6,7 @@ const assert = require('assert');
 const O = require('omikron');
 const functasy = require('..');
 
-const TICKS_NUM = 100e3;
+const TICKS_NUM = 1e5;
 const EXTENSION = 'txt';
 
 const cwd = __dirname;
@@ -39,12 +39,12 @@ describe('Programs', () => {
 
   function test(name, input, expected){
     var src = fs.readFileSync(path.join(programs, `${name}.${EXTENSION}`));
-    var actual = functasy.run(src, input, TICKS_NUM, 'utf8');
+    var actual = functasy.run(src, input, functasy.IO, 1, TICKS_NUM, 'utf8');
 
     if(actual === null)
       throw new Error(`The program did not complete in ${TICKS_NUM} ticks`);
 
-    assert.strictEqual(actual, expected);
+    assert.strictEqual(actual, expected, Buffer.from(actual).toString('hex'));
   }
 
   function randStr(){

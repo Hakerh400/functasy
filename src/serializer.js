@@ -7,7 +7,7 @@ const IO = require('./io');
 
 class Serializer extends IO{
   constructor(buf){
-    super(buf, 1);
+    super(buf);
   }
 
   write(num, max=1){
