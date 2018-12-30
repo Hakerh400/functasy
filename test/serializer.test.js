@@ -4,8 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 const O = require('omikron');
-const functasy = require('..');
-const Serializer = require('../src/serializer');
+const {Serializer} = require('..');
 
 describe('Serializer', () => {
   it('Properly handles integers', () => {

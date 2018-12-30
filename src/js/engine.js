@@ -136,7 +136,8 @@ class Engine{
          */
 
         stack[stack.length - 1] = newFrame;
-      }else{ // Otherwise just push the new frame to the stack
+      }else{
+        // Otherwise just push the new frame to the stack
         stack.push(newFrame);
       }
     }
@@ -193,7 +194,6 @@ class Engine{
         ser.write(1); // Has a value
         saveRef(new Reference(frame.getVal())); // Save frame's value
       }
-
     });
     ser.write(0); // No more stack frames
 

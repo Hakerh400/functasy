@@ -1,6 +1,12 @@
 language: node_js
-install:
-  - npm install
+sudo: false
 node_js:
   - '11'
-sudo: false
+install:
+  - npm install
+script:
+  npm test
+matrix:
+  include:
+    - env: IMPL=js
+    - env: IMPL=cpp
