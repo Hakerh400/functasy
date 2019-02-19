@@ -62,57 +62,8 @@ class Parser{
     return parser.funcs;
   }
 
-  static serialize(ser, func){
-    const stack = [func.elems.slice()];
-
-    while(stack.length !== 0){
-      var frame = O.last(stack);
-
-      if(frame.length === 0){
-        ser.write(0); // No more elements
-        stack.pop();
-        continue;
-      }
-
-      var elem = frame.shift();
-      ser.write(1); // Another element
-
-      var isIdent = elem.isIdent(); // Check if the element is an identifier
-      if(stack.length !== 1) ser.write(!isIdent); // Write the type of the element
-
-      if(isIdent) // If the element is an identifier
-        ser.write(elem.id, stack.length - 2); // Write the identifier's id
-      else // If the element is a function
-        stack.push(elem.elems.slice()) // Push function's elements to the stack
-      
-    }
-
-    return ser;
-  }
-
-  static deserialize(ser){
-    const parser = new Parser;
-    const {stack} = parser;
-
-    while(1){
-      if(!ser.read()){ // No more elements
-        if(stack.length === 1) // Main function is finished
-          break;
-
-        parser.add(1, 0); // End of the current function
-        continue;
-      }
-
-      if(stack.length !== 1 && !ser.read()){ // Identifier
-        parser.add(0, ser.read(stack.length - 2)); // Read the identifier's id
-        continue;
-      }
-
-      parser.add(1, 1); // Start of a new function
-    }
-
-    parser.finalize();
-    return parser.funcs;
+  static load(ser){
+    return Function.load(ser);
   }
 };
 
@@ -172,6 +123,59 @@ class Function extends Element{
   finalize(){
     this.idents = O.sortAsc(Array.from(this.idents));
     return this;
+  }
+
+  save(ser=new Serializer){
+    const stack = [this.elems.slice()];
+
+    while(stack.length !== 0){
+      var frame = O.last(stack);
+
+      if(frame.length === 0){
+        ser.write(0); // No more elements
+        stack.pop();
+        continue;
+      }
+
+      var elem = frame.shift();
+      ser.write(1); // Another element
+
+      var isIdent = elem.isIdent(); // Check if the element is an identifier
+      if(stack.length !== 1) ser.write(!isIdent); // Write the type of the element
+
+      if(isIdent) // If the element is an identifier
+        ser.write(elem.id, stack.length - 2); // Write the identifier's id
+      else // If the element is a function
+        stack.push(elem.elems.slice()) // Push function's elements to the stack
+      
+    }
+
+    return ser;
+  }
+
+  static load(ser){
+    const parser = new Parser;
+    const {stack} = parser;
+
+    while(1){
+      if(!ser.read()){ // No more elements
+        if(stack.length === 1) // Main function is finished
+          break;
+
+        parser.add(1, 0); // End of the current function
+        continue;
+      }
+
+      if(stack.length !== 1 && !ser.read()){ // Identifier
+        parser.add(0, ser.read(stack.length - 2)); // Read the identifier's id
+        continue;
+      }
+
+      parser.add(1, 1); // Start of a new function
+    }
+
+    parser.finalize();
+    return parser.funcs;
   }
 
   toString(parens=1, index=0){

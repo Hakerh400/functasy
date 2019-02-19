@@ -5,6 +5,7 @@ const path = require('path');
 const O = require('omikron');
 const Parser = require('./parser');
 const Serializer = require('./serializer');
+const List = require('./list');
 
 const DEBUG = 0;
 
@@ -143,157 +144,33 @@ class Engine{
     }
   }
 
-  save(){
+  save(ser=new Serializer){
     /**
      * Save the current state of the engine,
      * so that it can be loaded later
      */
 
     const {funcs} = this;
-    const ser = new Serializer();
 
     // Save the main function including all nested functions
-    Parser.serialize(ser, this.mainFunc);
+    this.mainFunc.save(ser);
 
-    /**
-     * Save the stack including all accessible closures
-     */
-
-    const clos = new Map();
-    const refs = new Map();
-
-    this.stack.forEach((frame, index) => {
-      const {closure} = frame;
-
-      ser.write(1); // Another stack frame
-
-      if(index === 0){
-        if(closure.func === this.mainFunc){
-          ser.write(0);
-          saveMainClos();
-        }else{
-          ser.write(1);
-          saveClos(closure);
-        }
-      }else{
-        saveClos(closure);
-      }
-
-      if(closure.func.isArgUsed){
-        ser.write(1);
-        saveRef(frame.arg); // Save frame's argument
-      }else{
-        ser.write(0);
-      }
-
-      ser.write(frame.index, frame.total()); // Save current index
-
-      if(!frame.hasVal()){ // If there is no value in the current frame
-        ser.write(0); // Has no value
-      }else{
-        ser.write(1); // Has a value
-        saveRef(new Reference(frame.getVal())); // Save frame's value
-      }
-    });
-    ser.write(0); // No more stack frames
-
-    // Return the saved engine state as a buffer
-    return ser.getOutput();
-
-    function saveRef(ref){
-      // Prepare a new queue
-      var queue = [ref];
-
-      while(queue.length !== 0){
-        // Obtain the closure from the next reference
-        var closure = queue.shift().get();
-
-        if(closures.size === 0){ // If there are no saved references
-          saveFunc();
-        }else{ // If there is at least one saved reference
-          if(closures.has(closure)){ // If the closure is already saved
-            ser.write(0); // Old closure
-            ser.write(closures.get(closure), closures.size - 1); // Closure's index
-            continue;
-          }
-
-          closures.add(closure, closures.size); // Add the closure to the map
-          ser.write(1); // New closure
-          saveFunc();
-        }
-
-        // Push all closure's references into the queue
-        for(var ident of closure.func.idents)
-          queue.push(closure.idents[ident]);
-      }
-
-      function saveFunc(){
-        // Save closure's function
-        ser.write(funcs.get(closure.func), funcs.size - 1);
-      }
-    }
+    return ser;
   }
 
-  load(buf){
-    var ser = new Serializer(buf);
+  load(ser){
+    /**
+     * Load previously saved state of the engine
+     */
+
+    const ser = new Serializer(buf);
 
     // Load all functions and extract the main function
-    this.funcs = Parser.deserialize(ser);
+    this.funcs = Parser.load(ser);
     this.mainFunc = this.funcs.keys().next().value;
 
     // Reset the stack
     this.stack.length = 0;
-
-    /**
-     * Load the stack including all accessible closures
-     */
-
-    var closures = new Map();
-
-    // Iterate over stack frames
-    while(ser.read()){
-      // Load another reference and construct a new frame using extracted closure
-      var frame = new StackFrame(loadRef().get());
-
-      frame.index = ser.read(frame.total()); // Load current index
-      if(!ser.read()) // If there is no value in the current frame
-        continue;
-
-      frame.setVal(loadRef()); // Load frame's value
-    }
-
-    function loadRef(){
-      // Prepare a new queue
-      var queue = [ref];
-
-      while(queue.length !== 0){
-        // Obtain the closure from the next reference
-        var closure = queue.shift().get();
-
-        if(closures.size === 0){ // If there are no saved references
-          saveFunc();
-        }else{ // If there is at least one saved reference
-          if(closures.has(closure)){ // If the closure is already saved
-            ser.write(0); // Old closure
-            ser.write(closures.get(closure), closures.size - 1); // Closure's index
-            continue;
-          }
-
-          closures.add(closure, closures.size); // Add the closure to the map
-          ser.write(1); // New closure
-          saveFunc();
-        }
-
-        // Push all closure's references into the queue
-        for(var ident of closure.func.idents)
-          queue.push(closure.idents[ident]);
-      }
-
-      function loadFunc(){
-        // Save closure's function
-        ser.write(funcs.get(closure.func), funcs.size - 1);
-      }
-    }
   }
 
   toString(){

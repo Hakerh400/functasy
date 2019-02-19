@@ -16,7 +16,7 @@
     "test": "mocha test/*.test.js"
   },
   "dependencies": {
-    "omikron": "^1.0.0"
+    "omikron": "^1.0.3"
   },
   "devDependencies": {
     "mocha": "^5.2.0"
